@@ -1,0 +1,67 @@
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{mathtools}
+\usepackage{bm}
+
+\newcommand{\tran}{\top}
+
+\newcommand{\B}{\mathrm{B}}
+\newcommand{\C}{\mathrm{C}}
+\newcommand{\W}{\mathrm{W}}
+
+\newcommand{\inW}{{}^{\W}\!}
+\newcommand{\inB}{{}^{\B}\!}
+\newcommand{\inC}{{}^{\C}\!}
+\newcommand{\inCs}{{}^{\C}}
+
+\newcommand{\Ab}{\bm{A}}
+\newcommand{\Hb}{\bm{H}}
+\newcommand{\Ib}{\bm{I}}
+\newcommand{\Rb}{\bm{R}}
+\newcommand{\ob}{\bm{o}}
+\newcommand{\Sb}{\bm{\Sigma}}
+\newcommand{\J}{\bm{J}}
+\newcommand{\m}{\bm{m}}
+\newcommand{\xib}{\bm{\xi}}
+\newcommand{\pb}{\bm{p}}
+\newcommand{\nub}{\bm{\nu}}
+\newcommand{\omegab}{\bm{\omega}}
+\newcommand{\db}{\bm{d}}
+\newcommand{\vb}{\bm{v}}
+\newcommand{\wb}{\bm{w}}
+\newcommand{\Zb}{\bm{0}}
+
+\begin{document}
+To estimate the robot pose, we use multiple ArUco markers. The markers are detected using OpenCV's ArUco module. We then solve the perspective-N-point problem of all detected marker corners jointly, using the SQPnP algorithm. As we define the marker corners' 3D positions in the world frame, this yields the world-to-camera transform $\inC \Hb_\W$. Inverting this yields the camera pose in the world frame $\inW \Hb_\C$. Using the known transformation from the camera to the robot base $\inB \Hb_\C$, we obtain the required robot pose in the world frame
+\[
+\inW \Hb_\B = (\inC \Hb_\W)^{-1} (\inB \Hb_\C)^ {-1}.
+\]
+
+In order to integrate the ArUco pose estimation into a localization pipeline, we need to estimate the camera pose covariance. We first compute the image Jacobian $\J$ of the marker image coordinates $\m = [u, v]^\tran$ with respect to the camera pose
+\[
+\J = \frac{\partial \m}{\partial \xib} = \frac{\partial \m}{\partial \inC \pb} \frac{\partial \inC \pb}{\partial \xib},
+\]
+where $\inC \pb$ are the marker points in the camera frame and $\xib$ are small perturbations in the camera pose. Consequently,
+\[
+\dot{\m} = \J \begin{pmatrix} \inC \nub_\C \\ \inC \omegab_\C \end{pmatrix},
+\]
+where $\inC \nub_\C$ and $\inC \omegab_\C$ are the translational and rotational velocities of the camera in the camera frame. The outer product of the Jacobian with itself is used as an approximation (Gauss-Newton) of the Hessian, and the inverse of this is used as an approximation (Gaussian model) of the camera pose covariance in the camera frame
+\[
+\inCs \Sb_\C \approx (\J^\tran \J)^{-1} \sigma^2,
+\]
+where $\sigma$ is the root-mean-squared reprojection error of the marker points.
+
+As we require the pose covariance in the world frame, $\inCs \Sb_\C$ is then rotated into the world frame using
+\begin{align}
+\Ab_\mathrm{CW} &= \begin{pmatrix}\inW \Rb_\C & \Zb \\ \Zb & \inW \Rb_\C\end{pmatrix} \\
+\inW \Sb_\C &= \Ab_\mathrm{CW} \inCs \Sb_C A_\mathrm{CW}^\tran.
+\end{align}
+Finally, we need to obtain the robot pose covariance in the world frame $\inW \Sb_\B$. As both $\inW \Sb_\C$ and $\inW \Sb_\B$ are given in the world frame, the angular components do not change. However, the base position covariance suffers the lever-arm effect of the camera's angular uncertainty. The final covariance is given by
+\begin{align}
+\inW \db &= \inW \Rb_\C \inC \ob_\B \\
+\Ab_\mathrm{CB} &= \begin{pmatrix} \Ib & -[\inW \db]_\times \\ \Zb & \Ib \end{pmatrix}\\
+\inW \Sb_\B &= \Ab_\mathrm{CB} \inW \Sb_\C A_\mathrm{CB}^\tran,
+\end{align}
+where $\inW \db$ is the lever arm vector from the camera to the robot base in the world frame, and $[\vb]_\times$ is the skew-symmetric matrix of $\vb$ such that $[\vb]_\times \wb = \vb \times \wb$ for any vector $\wb$.
+\end{document}

@@ -1,0 +1,7 @@
+string parent_frame_id 'world'        # the transform is with respect to this frame id
+string base_frame_id 'camera_link'    # the transform is with respect to this frame id
+string marker_frame_id 'aruco_marker' # the reference transform
+int64 marker_id                       # the marker id to use for pose estimation
+---
+bool success
+geometry_msgs/PoseStamped pose
