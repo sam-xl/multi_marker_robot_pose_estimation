@@ -1,0 +1,9 @@
+repositories:
+  ros2-aruco-pose-estimation:
+    type: git
+    url: https://github.com/sam-xl/ros2-aruco-pose-estimation.git
+    version: eff5182c83c3a79905edda633a30055de1161247 # add_aruco_mip_36h12_option on 2026-08-11
+  ament_virtualenv:
+    type: git
+    url: https://github.com/sam-xl/ament_virtualenv.git
+    version: 0.6.0
