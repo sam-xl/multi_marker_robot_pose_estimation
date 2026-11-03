@@ -4,8 +4,11 @@
   <name>multi_marker_robot_pose_estimation</name>
   <version>0.1.1</version>
   <description>Package to estimate the robot pose</description>
-  <maintainer email="J.C.vanBrakel@tudelft.nl">Jasper van Brakel</maintainer>
+  <maintainer email="W.Caarls@tudelft.nl">Wouter Caarls</maintainer>
   <license>Apache-2.0</license>
+  <author>Jasper van Brakel</author>
+  <author>Wouter Caarls</author>
+  <author>Nithish Kumar</author>
 
   <depend>tf2_ros_py</depend>
   <depend>rclpy</depend>

@@ -3,9 +3,9 @@
 ## Overview
 This repository provides the `multi_marker_robot_pose_estimation` package, which can be used to estimate the robot pose based on a multiple ArUco markers.
 
-**Authors: Jasper van Brakel, Wouter Caarls ([SAM XL](https://samxl.tudelftcampus.nl/))**
+**Authors: Jasper van Brakel, Wouter Caarls, Nithish Kumar ([SAM XL](https://samxl.tudelftcampus.nl/))**
 
-**Maintainers: Jasper van Brakel, J.C.vanBrakel@tudelft.nl**
+**Maintainers: Wouter Caarls, W.Caarls@tudelft.nl**
 
 This package hase been developed and tested under ROS2 Jazzy and Ubuntu 24.04 (Noble).
 
