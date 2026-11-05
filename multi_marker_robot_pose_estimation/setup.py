@@ -53,8 +53,8 @@ setup(
     ],
     install_requires=["setuptools"],
     zip_safe=True,
-    maintainer="Jasper van Brakel",
-    maintainer_email="J.C.vanBrakel@tudelft.nl",
+    maintainer="Wouter Caarls",
+    maintainer_email="W.Caarls@tudelft.nl",
     description="Package to estimate the robot pose",
     license="Apache-2.0",
     extras_require={
@@ -64,7 +64,6 @@ setup(
     },
     entry_points={
         "console_scripts": [
-            f"pose_estimator = {package_name}.pose_estimator:main",
             f"mm_pose_estimator = {package_name}.mm_pose_estimator:main",
         ],
     },
