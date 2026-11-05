@@ -57,6 +57,7 @@ jobs:
       - uses: sam-xl/industrial_ci@rosdep_fix_and_recent_clang_versions
         env:
           ROS_DISTRO: jazzy
+          DOCKER_IMAGE: ros:jazzy
           ROS_REPO: main
           UPSTREAM_WORKSPACE: >-
             .repos
