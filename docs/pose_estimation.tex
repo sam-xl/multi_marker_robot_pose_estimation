@@ -30,7 +30,7 @@ where $\sigma$ is the root-mean-squared reprojection error of the marker points.
 As we require the pose covariance in the world frame, $\inCs \Sb_\C$ is then rotated into the world frame using
 \begin{align}
 \Ab_\mathrm{CW} &= \begin{pmatrix}\inW \Rb_\C & \Zb \\ \Zb & \inW \Rb_\C\end{pmatrix} \\
-\inW \Sb_\C &= \Ab_\mathrm{CW} \inCs \Sb_C A_\mathrm{CW}^\tran.
+\inW \Sb_\C &= \Ab_\mathrm{CW} \inCs \Sb_C \Ab_\mathrm{CW}^\tran.
 \end{align}
 Finally, we need to obtain the robot pose covariance in the world frame $\inW \Sb_\B$. As both $\inW \Sb_\C$ and $\inW \Sb_\B$ are given in the world frame, the angular components do not change. However, the base position covariance suffers the lever-arm effect of the camera's angular uncertainty. The final covariance is given by
 \begin{align}
