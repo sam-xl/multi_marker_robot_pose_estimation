@@ -1,0 +1,72 @@
+% latexmk -pdf lever_arm_covariance.tex && latexmk -c lever_arm_covariance.tex
+
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage{mathtools}
+\usepackage{bm}
+\usepackage{microtype}
+
+\input{notation}
+
+\newtheorem{lemma}{Lemma}
+
+\newcommand{\thetab}{\bm{\theta}}
+
+\begin{document}
+This note derives the matrix $\Ab_\mathrm{CB}$ of \texttt{pose\_estimation.pdf}, which carries the camera pose covariance over to the robot base.
+
+\begin{lemma}
+Let the camera pose in the world frame be given by the rotation $\inW \Rb_\C$ and the position $\inW \pb_\C$, and let the robot base be rigidly attached to the camera, with its origin at $\inC \ob_\B$ and its orientation $\inC \Rb_\B$ in the camera frame, both known exactly.
+Let $\delta\pb_\C$ and $\delta\thetab_\C$ be small perturbations of the camera position and orientation, expressed in the world frame, such that
+\[
+\inW \pbt_\C = \inW \pb_\C + \delta\pb_\C, \qquad
+\inW \Rbt_\C = (\Ib + [\delta\thetab_\C]_\times) \inW \Rb_\C,
+\]
+with covariance $\inW \Sb_\C$.
+Then, to first order, the resulting perturbations $\delta\pb_\B$ and $\delta\thetab_\B$ of the base pose, in the same convention, are
+\[
+\begin{pmatrix} \delta\pb_\B \\ \delta\thetab_\B \end{pmatrix}
+= \Ab_\mathrm{CB} \begin{pmatrix} \delta\pb_\C \\ \delta\thetab_\C \end{pmatrix},
+\qquad
+\Ab_\mathrm{CB} = \begin{pmatrix} \Ib & -[\inW \db]_\times \\ \Zb & \Ib \end{pmatrix},
+\qquad
+\inW \db = \inW \Rb_\C \inC \ob_\B,
+\]
+and the base pose covariance is $\inW \Sb_\B = \Ab_\mathrm{CB} \inW \Sb_\C \Ab_\mathrm{CB}^\tran$.
+\end{lemma}
+
+\begin{proof}
+The base position follows from the camera pose as
+\[
+\inW \pb_\B = \inW \pb_\C + \inW \Rb_\C \inC \ob_\B = \inW \pb_\C + \inW \db.
+\]
+Applying the perturbations gives
+\begin{align*}
+\inW \pbt_\B &= \inW \pbt_\C + \inW \Rbt_\C \inC \ob_\B\\
+\inW \pb_\B + \delta\pb_\B
+&= \inW \pb_\C + \delta\pb_\C + (\Ib + [\delta\thetab_\C]_\times) \inW \Rb_\C \inC \ob_\B\\
+&= \inW \pb_\C + \delta\pb_\C + \inW \db + \delta\thetab_\C \times \inW \db\\
+&= \inW \pb_\B + \delta\pb_\C + \delta\thetab_\C \times \inW \db,
+\end{align*}
+so, using $\vb \times \wb = -\wb \times \vb$,
+\[
+\delta\pb_\B = \delta\pb_\C - \inW \db \times \delta\thetab_\C = \delta\pb_\C- [\inW \db]_\times \delta\thetab_\C.
+\]
+The base orientation is $\inW \Rb_\B = \inW \Rb_\C \inC \Rb_\B$. The perturbed base orientation can be expressed using the convention of the lemma applied to the base by applying the camera perturbation with $\inC \Rb_\B$ fixed by the rigid mount as follows:
+\begin{align*}
+\inW \Rbt_\B &= \inW \Rbt_\C\inC \Rb_\B\\
+(\Ib + [\delta\thetab_\B]_\times) \inW \Rb_\B
+&= (\Ib + [\delta\thetab_\C]_\times) \inW \Rb_\C \inC \Rb_\B\\
+&= (\Ib + [\delta\thetab_\C]_\times) \inW \Rb_\B.
+\end{align*}
+Multiplying from the right by $\inW \Rb_\B^\tran$ gives
+\[
+\Ib + [\delta\thetab_\B]_\times = \Ib + [\delta\thetab_\C]_\times,
+\]
+so $\delta\thetab_\B = \delta\thetab_\C$.
+Stacking both results yields the linear map $\Ab_\mathrm{CB}$.
+\end{proof}
+
+\end{document}
