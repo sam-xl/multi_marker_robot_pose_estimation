@@ -4,6 +4,11 @@ from dataclasses import dataclass, field
 import cv2
 import numpy as np
 import pytest
+
+# aruco_board.create_marker_board calls rclpy.time.Time() after only `import rclpy`, which does
+# not load the rclpy.time submodule. The node gets it as a side effect of importing rclpy.node;
+# import it here so the tests run under the same conditions as the node.
+import rclpy.time  # noqa: F401
 import yaml
 from geometry_msgs.msg import Quaternion, Transform, TransformStamped, Vector3
 
