@@ -2,6 +2,11 @@
 Changelog for multi_marker_robot_pose_estimation
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+- Fix the TF EMA dropping the TF for rotations near 180°: average the
+  quaternion on the previous one's sign and renormalise it.
+
 0.1.2 (2026-11-03)
 ------------------
 - Estimate pose covariance from reprojection error

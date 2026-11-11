@@ -13,7 +13,7 @@ import rclpy
 import rclpy.node
 import tf2_geometry_msgs  # noqa: F401
 from cv_bridge import CvBridge
-from geometry_msgs.msg import PoseWithCovarianceStamped, TransformStamped
+from geometry_msgs.msg import PoseWithCovarianceStamped, Quaternion, TransformStamped
 from rcl_interfaces.msg import ParameterDescriptor, ParameterType
 from rclpy.executors import ExternalShutdownException
 from rclpy.qos import QoSHistoryPolicy, QoSProfile, qos_profile_sensor_data
@@ -206,22 +206,16 @@ class ArucoLocalizationNode(rclpy.node.Node):
                     self.tf_alpha * self.transform.translation.z
                     + (1 - self.tf_alpha) * t.transform.translation.z
                 )
-                t.transform.rotation.x = (
-                    self.tf_alpha * self.transform.rotation.x
-                    + (1 - self.tf_alpha) * t.transform.rotation.x
-                )
-                t.transform.rotation.y = (
-                    self.tf_alpha * self.transform.rotation.y
-                    + (1 - self.tf_alpha) * t.transform.rotation.y
-                )
-                t.transform.rotation.z = (
-                    self.tf_alpha * self.transform.rotation.z
-                    + (1 - self.tf_alpha) * t.transform.rotation.z
-                )
-                t.transform.rotation.w = (
-                    self.tf_alpha * self.transform.rotation.w
-                    + (1 - self.tf_alpha) * t.transform.rotation.w
-                )
+                r_previous = self.transform.rotation
+                r_new = t.transform.rotation
+                q_previous = np.array([r_previous.x, r_previous.y, r_previous.z, r_previous.w])
+                q_new = np.array([r_new.x, r_new.y, r_new.z, r_new.w])
+                # q and -q are the same rotation; average the one closest to q_previous
+                if np.dot(q_previous, q_new) < 0:
+                    q_new = -q_new
+                q = self.tf_alpha * q_previous + (1 - self.tf_alpha) * q_new
+                x, y, z, w = q / np.linalg.norm(q)
+                t.transform.rotation = Quaternion(x=x, y=y, z=z, w=w)
             self.transform = t.transform
 
             self.tf_broadcaster.sendTransform(t)
