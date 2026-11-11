@@ -1,0 +1,93 @@
+% latexmk -pdf camera_pose_covariance.tex && latexmk -c camera_pose_covariance.tex
+
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{mathtools}
+\usepackage{bm}
+\usepackage{hyperref}
+
+\input{notation}
+
+\begin{document}
+This note derives the camera pose covariance $\inCs \Sb_\C$ of \href{pose_estimation.pdf}{\texttt{pose\_estimation.pdf}} and the estimate of the pixel noise it is scaled with.
+For $N$ detected marker corners, the image Jacobian $\J$ stacks the $2 \times 6$ Jacobians of all corners into a $2N \times 6$ matrix, so each row belongs to one pixel coordinate, $u$ or $v$, of one corner.
+
+\paragraph{Covariance of the fitted pose.}
+Let $\xib$ be the true camera pose and $\fb(\xib)$ the projection of the marker points into the image at that pose, which maps a camera pose to the stacked $2N$ pixel coordinates of the marker corners. We model the detected corner coordinates $\m \in \mathbb{R}^{2N}$ as this projection plus independent pixel noise of equal variance $\sigma^2$ on every coordinate,
+\[
+  \m = \fb(\xib) + \epsb, \qquad \epsb \sim \mathcal{N}(\Zb, \sigma^2 \Ib_{2N}).
+\]
+SQPnP returns the pose $\hat\xib$ that minimizes the reprojection cost $E = \frac{1}{2} \lVert \rb \rVert^2$ of the residuals $\rb = \m - \fb(\hat\xib)$. Let $\delta\xib$ be the small perturbation that moves the true pose $\xib$ to the estimate $\hat\xib$. Linearizing $\fb$ around the true pose, $\fb(\hat\xib) \approx \fb(\xib) + \J \, \delta\xib$, gives the residuals
+\begin{equation}
+  \rb \approx \epsb - \J \, \delta\xib . \label{eq:residuals_linear}
+\end{equation}
+At the minimum, the gradient of the cost, $\partial E / \partial \delta\xib = -\J^\tran \rb$, vanishes. $\delta\xib$ therefore solves the normal equations $\J^\tran \J \, \delta\xib = \J^\tran \epsb$, the linear least-squares fit of a camera motion to the noise,
+\begin{equation}
+  \delta\xib = (\J^\tran \J)^{-1} \J^\tran \epsb . \label{eq:pose_error}
+\end{equation}
+Its covariance is
+\[
+  \inCs \Sb_\C = \mathbb{E}[\delta\xib \, \delta\xib^\tran]
+  = (\J^\tran \J)^{-1} \J^\tran \, \mathbb{E}[\epsb \epsb^\tran] \, \J (\J^\tran \J)^{-1}
+  = \sigma^2 (\J^\tran \J)^{-1},
+\]
+OpenCV orders the Jacobian columns as (rotation, translation). We reorder them to (translation, rotation), so that $\inCs \Sb_\C$ has the layout of a ROS pose covariance.
+
+\paragraph{Estimating the pixel noise $\sigma$.}
+$\sigma^2$ is the variance of a single pixel coordinate, so it is estimated from the $2N$ coordinate residuals $\rb$. Substituting \eqref{eq:pose_error} into \eqref{eq:residuals_linear} gives
+\[
+  \rb = (\Ib_{2N} - \Pb)\, \epsb, \qquad \Pb = \J (\J^\tran \J)^{-1} \J^\tran .
+\]
+The column space of $\J$ holds the corner displacements $\J \, \delta\xib$ that a small camera motion produces. $\Pb$ is the orthogonal projection onto it: $\Pb \epsb$ is the part of the noise that a camera motion explains, and the residuals are the rest, orthogonal to every camera motion.
+
+$\Pb$ is symmetric and idempotent, $\Pb^2 = \J (\J^\tran \J)^{-1} \J^\tran \J (\J^\tran \J)^{-1} \J^\tran = \Pb$, so $\Ib_{2N} - \Pb$ is too,
+\begin{equation}
+  (\Ib_{2N} - \Pb)^\tran (\Ib_{2N} - \Pb) = (\Ib_{2N} - \Pb)^2 = \Ib_{2N} - 2\Pb + \Pb^2 = \Ib_{2N} - \Pb . \label{eq:idempotent}
+\end{equation}
+For any matrix $\bm{M}$, the noise coordinates are uncorrelated, $\mathbb{E}[\varepsilon_i \varepsilon_j] = 0$ for $i \neq j$, and $\mathbb{E}[\varepsilon_i^2] = \sigma^2$, so only the diagonal of $\bm{M}$ remains,
+\begin{equation}
+  \mathbb{E}[\epsb^\tran \bm{M} \epsb]
+  = \sum_{i,j} M_{ij} \, \mathbb{E}[\varepsilon_i \varepsilon_j]
+  = \sigma^2 \sum_i M_{ii}
+  = \sigma^2 \operatorname{tr}(\bm{M}) . \label{eq:trace}
+\end{equation}
+The expected residual sum of squares follows from \eqref{eq:idempotent}, \eqref{eq:trace} and the cyclic property of the trace, $\operatorname{tr}(\bm{A}\bm{B}) = \operatorname{tr}(\bm{B}\bm{A})$,
+\begin{equation}
+  \begin{aligned}
+    \mathbb{E}[\rb^\tran \rb]
+     & = \mathbb{E}[\epsb^\tran (\Ib_{2N} - \Pb)^\tran (\Ib_{2N} - \Pb) \epsb]
+    \stackrel{\eqref{eq:idempotent}}{=} \mathbb{E}[\epsb^\tran (\Ib_{2N} - \Pb) \epsb]
+    \stackrel{\eqref{eq:trace}}{=} \sigma^2 \operatorname{tr}(\Ib_{2N} - \Pb)                        \\
+     & = \sigma^2 \left( 2N - \operatorname{tr}\left( (\J^\tran \J)^{-1} \J^\tran \J \right) \right)
+    = (2N - 6)\, \sigma^2 .
+  \end{aligned}
+  \label{eq:rss}
+\end{equation}
+Dividing the residual sum of squares by $2N - 6$ therefore gives an unbiased estimate of $\sigma^2$, $\mathbb{E}[\hat\sigma^2] = \sigma^2$~\cite{statproofbook_resvar_biasp}, with
+\begin{equation}
+  \hat\sigma^2 = \frac{\rb^\tran \rb}{2N - 6} = \frac{1}{2N - 6} \sum_{i=1}^{N} \left( \Delta u_i^2 + \Delta v_i^2 \right), \label{eq:sigma_hat}
+\end{equation}
+which needs $N \geq 4$ corners. A single marker always provides 4.
+
+The $6$ in \eqref{eq:rss} is the trace of $\Pb$, the number of pose parameters. Fitting them makes the residuals satisfy the 6 normal equations $\J^\tran \rb = \Zb$, so only $2N - 6$ of them vary freely. Fitting a mean to $n$ samples is the case $\J = [1, \dots, 1]^\tran$: $\Pb$ replaces every sample with the mean, $\operatorname{tr}(\Pb) = 1$, the normal equation states that the residuals sum to zero, and \eqref{eq:sigma_hat} becomes the sample variance with its $n - 1$.
+
+\paragraph{Lower bound.}
+With one marker, $2N - 6 = 2$: the normal equations leave the 8 residuals only 2 independent components, so $\hat\sigma^2$ is (in effect) an average of just two squared noise samples. Two samples are too few to average out (in about 10\,\% of the frames, $\hat\sigma^2$ is below a tenth of the true variance\footnote{To first order, \eqref{eq:residuals_linear} is a linear regression model with design matrix $\J$, so $\rb^\tran \rb / \sigma^2 = (2N - 6)\,\hat\sigma^2 / \sigma^2$ follows a $\chi^2$ distribution with $2N - 6$ degrees of freedom~\cite{statproofbook_rssdist}. For one marker, that is $\chi^2_2$, the exponential distribution with mean 2~\cite{wikipedia_chi2}, so $P(\hat\sigma^2 < k \sigma^2) = P(\chi^2_2 < 2k) = 1 - e^{-k}$.}). A localization filter would trust such a near-zero covariance blindly. The pixel noise should therefore be floored at the parameter $\sigma_\mathrm{min}$,
+\[
+  \sigma^2 = \max\left(\hat\sigma^2, \sigma_\mathrm{min}^2\right),
+  \qquad
+  \inCs \Sb_\C \approx \sigma^2 (\J^\tran \J)^{-1}.
+\]
+The noise of a static camera's corner detections, or the RMS error of the camera calibration, gives a value for $\sigma_\mathrm{min}$.
+The residuals capture the errors that make the markers inconsistent with each other, such as corner bias, a mis-surveyed marker or calibration errors, and they change with the blur, lighting and distance in each frame. Errors that shift all markers consistently, such as an error in $\inB \Hb_\C$, leave no residual and are not modeled.
+
+\begin{thebibliography}{9}
+  \bibitem{statproofbook_rssdist}
+  The Book of Statistical Proofs, ``Distribution of residual sum of squares in multiple linear regression'', \url{https://statproofbook.github.io/P/mlr-rssdist}.
+  \bibitem{statproofbook_resvar_biasp}
+  The Book of Statistical Proofs, ``Maximum likelihood estimator of variance in multiple linear regression is biased'', \url{https://statproofbook.github.io/P/resvar-biasp}.
+  \bibitem{wikipedia_chi2}
+  Wikipedia, ``Chi-squared distribution'', section ``Related distributions'', \url{https://en.wikipedia.org/wiki/Chi-squared_distribution}.
+\end{thebibliography}
+\end{document}
