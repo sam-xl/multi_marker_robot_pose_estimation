@@ -1,6 +1,7 @@
 """Functions to deal with ArUco board markers."""
 
 import re
+from collections import defaultdict
 from math import sqrt
 
 import cv2
@@ -10,6 +11,8 @@ import yaml
 from geometry_msgs.msg import PoseWithCovariance
 
 from multi_marker_robot_pose_estimation.utils import H, matrix_to_pose, tf_to_matrix
+
+logger = rclpy.logging.get_logger(__name__)
 
 
 def create_marker_board(tf_buffer, world_frame_id, aruco_dict, marker_size) -> cv2.aruco.Board:
@@ -21,8 +24,8 @@ def create_marker_board(tf_buffer, world_frame_id, aruco_dict, marker_size) -> c
     The corners are calculated using marker_size, in the XY plane of the
     marker frame.
     """
-    obj_points = []
-    ids = []
+    corners_by_id = {}
+    frames_by_id = defaultdict(list)
 
     half_size = marker_size / 2.0
 
@@ -64,16 +67,24 @@ def create_marker_board(tf_buffer, world_frame_id, aruco_dict, marker_size) -> c
         # Transform corners into board/world coordinates
         world_corners = Hmw @ local_corners.T
 
-        obj_points.append(world_corners[0:3, :].T.astype(np.float32))
-        ids.append(marker_id)
+        corners_by_id[marker_id] = world_corners[0:3, :].T.astype(np.float32)
+        frames_by_id[marker_id].append(frame)
 
-    if len(ids) == 0:
+    duplicates = {i: frames for i, frames in frames_by_id.items() if len(frames) > 1}
+    if duplicates:
+        logger.warn(
+            f"Ignoring markers given by several frames: {duplicates}", throttle_duration_sec=10.0
+        )
+        for marker_id in duplicates:
+            del corners_by_id[marker_id]
+
+    if len(corners_by_id) == 0:
         return None
 
     board = cv2.aruco.Board(
-        objPoints=obj_points,
+        objPoints=list(corners_by_id.values()),
         dictionary=aruco_dict,
-        ids=np.array(ids, dtype=np.int32),
+        ids=np.array(list(corners_by_id), dtype=np.int32),
     )
 
     return board
@@ -121,6 +132,14 @@ def detect_marker_board(
         newcorners.append(corner)
         newids.append(_id)
     newids = np.array(newids)
+
+    unique_ids, counts = np.unique(newids, return_counts=True)
+    duplicates = unique_ids[counts > 1]
+    if duplicates.size > 0:
+        logger.debug(f"Ignoring markers detected more than once: {duplicates}")
+        keep = ~np.isin(newids.ravel(), duplicates)
+        newcorners = [corner for corner, kept in zip(newcorners, keep) if kept]
+        newids = newids[keep]
 
     if newids is None or newids.size == 0:
         return None

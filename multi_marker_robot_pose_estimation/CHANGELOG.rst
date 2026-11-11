@@ -6,6 +6,8 @@ Forthcoming
 -----------
 - Fix the TF EMA dropping the TF for rotations near 180°: average the
   quaternion on the previous one's sign and renormalise it.
+- Ignore marker IDs detected more than once in an image or given by more
+  than one ``aruco_ref_<id>`` frame, instead of fitting the pose to both.
 
 0.1.2 (2026-11-03)
 ------------------
