@@ -116,6 +116,7 @@ class ArucoLocalizationNode(rclpy.node.Node):
             imgPoints,
             matrix_coefficients=intrinsic_mat,
             distortion_coefficients=distortion,
+            sigma_min=self.get_parameter("sigma_min").value,
             frame=cv_image if self.debug else None,
         )
 
@@ -284,6 +285,18 @@ class ArucoLocalizationNode(rclpy.node.Node):
                     "1 disables smoothing; lowering it smooths more and lags more."
                 ),
                 floating_point_range=[FloatingPointRange(from_value=0.01, to_value=1.0)],
+            ),
+        )
+
+        self.declare_parameter(
+            name="sigma_min",
+            value=0.5,
+            descriptor=ParameterDescriptor(
+                type=ParameterType.PARAMETER_DOUBLE,
+                description=(
+                    "Lower bound on the per-coordinate pixel noise of the pose covariance [px]. "
+                    "Raising it raises the covariance of frames with small reprojection errors."
+                ),
             ),
         )
 

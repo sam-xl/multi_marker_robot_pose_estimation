@@ -13,6 +13,9 @@ Forthcoming
   EMA definition; it was the weight of the previous one. Replace a value
   ``a`` set before with ``1 - a``. The default changes from 0.85 to 0.15,
   which smooths the same.
+- Estimate the pixel noise of the pose covariance per coordinate over the
+  2N - 6 residual degrees of freedom, floored by the new ``sigma_min``
+  parameter. It was half the noise variance for a single marker.
 
 0.1.2 (2026-11-03)
 ------------------

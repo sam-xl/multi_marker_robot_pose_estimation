@@ -1,4 +1,4 @@
-"""Check the debug image and the smoothed TF of mm_pose_estimator."""
+"""Check the debug image, the smoothed TF and the pose covariance of mm_pose_estimator."""
 
 import unittest
 
@@ -8,6 +8,8 @@ import rclpy
 from geometry_msgs.msg import PoseWithCovarianceStamped
 from launch import LaunchDescription
 from launch_testing.actions import ReadyToTest
+from rclpy.parameter import Parameter
+from rclpy.parameter_client import AsyncParameterClient
 from sensor_msgs.msg import Image
 from synthetic_camera import SyntheticCamera, estimator_node, render_markers, scene_tf_publishers
 from tf2_ros import Buffer, TransformListener
@@ -78,3 +80,18 @@ class TestPoseOutputs(unittest.TestCase):
         pose = self.camera.wait_for(render_markers(-np.pi + 0.1, MARKERS), self.poses)
         yaw = self.tf_yaw(pose.header.stamp) % (2 * np.pi)
         self.assertAlmostEqual(yaw, np.pi - 0.1 + TF_ALPHA * 0.2, delta=np.radians(1.0))
+
+    def test_covariance_scales_with_sigma_min_squared(self):
+        """The synthetic corners leave sub-pixel residuals, so sigma_min sets σ²."""
+        image = render_markers(0.0, MARKERS)
+        parameters = AsyncParameterClient(self.node, "mm_pose_estimator")
+        self.assertTrue(parameters.wait_for_services(timeout_sec=30.0))
+        covariances = []
+        for sigma_min in (1.0, 2.0):
+            future = parameters.set_parameters([Parameter("sigma_min", value=sigma_min)])
+            rclpy.spin_until_future_complete(self.node, future)
+            pose = self.camera.wait_for(image, self.poses).pose
+            covariances.append(np.reshape(pose.covariance, (6, 6)))
+        np.testing.assert_allclose(covariances[1], 4 * covariances[0], rtol=1e-6)
+        np.testing.assert_allclose(covariances[0], covariances[0].T, rtol=1e-6)
+        self.assertGreater(np.linalg.eigvalsh(covariances[0]).min(), 0.0)
