@@ -31,3 +31,9 @@ CATKIN_IGNORE*
 # Other
 *.pcd
 *.pyc
+
+# LaTeX
+_region_.*
+prv_*.fmt
+prv_*.log
+auto/
