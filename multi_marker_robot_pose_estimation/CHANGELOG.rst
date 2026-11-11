@@ -7,6 +7,8 @@ Forthcoming
 - Publish ``~/debug_image`` also for frames without a pose, without
   overlays, and with the camera image's header. It kept showing the
   last frame with a pose and had an empty header.
+- Fix the TF EMA dropping the TF for rotations near 180°: average the
+  quaternion on the previous one's sign and renormalise it.
 
 0.1.2 (2026-11-03)
 ------------------
