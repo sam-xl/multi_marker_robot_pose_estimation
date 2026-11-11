@@ -112,6 +112,9 @@ Frame as which to publish TF. If empty, no TF is published. This is useful if an
 * `tf_alpha` (double)\
 Parameter of EMA filter for TF broadcaster. Defaults to `0.85`. This increases accuracy by averaging over multiple frames, provided that the robot is stationary.
 
+* `sigma_min` (double)\
+Lower bound on the per-coordinate pixel noise σ of the pose covariance, in pixels. Defaults to `0.5`. Raising it raises the covariance of frames with small reprojection errors, such as single-marker frames that fit by chance. Measure it as the noise of a static camera's corner detections, or take the camera calibration RMS error.
+
 * `fps` (double)\
 Maximum frames per second to process. Defaults to `5`.
 

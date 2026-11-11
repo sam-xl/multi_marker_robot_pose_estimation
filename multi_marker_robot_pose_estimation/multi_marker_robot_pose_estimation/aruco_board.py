@@ -101,6 +101,7 @@ def detect_marker_board(
     newcorners = []
     newids = []
     for corner, _id in zip(corners, ids):
+        ### TDODO(gsotirchos) is this helpful? ###
         x = corner[0, :, 0]
         y = corner[0, :, 1]
         area = (
@@ -128,6 +129,7 @@ def detect_marker_board(
         # Remove acute markers
         if squareness < 0.8:
             continue
+        ##########################################
 
         newcorners.append(corner)
         newids.append(_id)
@@ -160,8 +162,23 @@ def detect_marker_board(
     return objPoints, imgPoints
 
 
+def pose_covariance(jacobian, imgPoints, projPoints, sigma_min) -> np.ndarray:
+    """
+    Return the covariance (JᵀJ)⁻¹σ² of the [translation, rotation] pose fitted to imgPoints.
+
+    σ² is the per-coordinate pixel noise variance, estimated from the 2N residuals over the
+    2N - 6 degrees of freedom the fit leaves, and at least sigma_min².
+    See docs/pose_estimation.tex and
+    https://stackoverflow.com/questions/36618269/uncertainty-on-pose-estimate-when-minimizing-measurement-errors
+    """
+    residuals = (imgPoints - projPoints).reshape(-1)
+    sigma_squared = max(np.sum(residuals**2) / (residuals.size - 6), sigma_min**2)
+    J_pose = jacobian[:, [3, 4, 5, 0, 1, 2]]
+    return np.linalg.pinv(J_pose.T @ J_pose) * sigma_squared
+
+
 def estimate_board_pose(
-    objPoints, imgPoints, matrix_coefficients, distortion_coefficients, frame=None
+    objPoints, imgPoints, matrix_coefficients, distortion_coefficients, sigma_min, frame=None
 ) -> PoseWithCovariance:
     """Estimate board pose from detected markers."""
     pose = PoseWithCovariance()
@@ -187,16 +204,7 @@ def estimate_board_pose(
         objPoints, rvec, tvec, matrix_coefficients, distortion_coefficients
     )
 
-    # Calculate reprojection error
-    diff = (imgPoints - projPoints).reshape(-1, 2)
-    errors = np.linalg.norm(diff, axis=1)
-    rms_image = np.sqrt(np.mean(errors**2))
-
-    # Calculate pose covariance from image jacobian.
-    # https://stackoverflow.com/questions/36618269/uncertainty-on-pose-estimate-when-minimizing-measurement-errors
-    J_pose = jacobian[:, [3, 4, 5, 0, 1, 2]]
-    J_T_J = np.dot(J_pose.T, J_pose)
-    cov_pose = np.linalg.pinv(J_T_J) * (rms_image**2)
+    cov_pose = pose_covariance(jacobian, imgPoints, projPoints, sigma_min)
 
     pose.covariance = cov_pose.flatten()
 
@@ -221,7 +229,7 @@ def estimate_board_pose(
 
 
 def estimate_camera_pose(
-    objPoints, imgPoints, matrix_coefficients, distortion_coefficients, frame=None
+    objPoints, imgPoints, matrix_coefficients, distortion_coefficients, sigma_min, frame=None
 ) -> PoseWithCovariance:
     """Estimate camera pose from detected markers."""
     pose = PoseWithCovariance()
@@ -257,16 +265,7 @@ def estimate_camera_pose(
         distortion_coefficients,
     )
 
-    # Calculate reprojection error
-    diff = (imgPoints - projPoints).reshape(-1, 2)
-    errors = np.linalg.norm(diff, axis=1)
-    rms_image = np.sqrt(np.mean(errors**2))
-
-    # Calculate pose covariance from image jacobian.
-    # https://stackoverflow.com/questions/36618269/uncertainty-on-pose-estimate-when-minimizing-measurement-errors
-    J_pose = jacobian[:, [3, 4, 5, 0, 1, 2]]
-    J_T_J = np.dot(J_pose.T, J_pose)
-    cov_pose = np.linalg.pinv(J_T_J) * (rms_image**2)
+    cov_pose = pose_covariance(jacobian, imgPoints, projPoints, sigma_min)
 
     # Convert pose covariance to world frame.
     # We only need to rotate it, as there is no lever arm effect
