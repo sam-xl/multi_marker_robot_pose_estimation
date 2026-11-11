@@ -16,6 +16,8 @@ Forthcoming
 - Estimate the pixel noise of the pose covariance per coordinate over the
   2N - 6 residual degrees of freedom, floored by the new ``sigma_min``
   parameter. It was half the noise variance for a single marker.
+- Ignore marker IDs detected more than once in an image or given by more
+  than one ``aruco_ref_<id>`` frame, instead of fitting the pose to both.
 
 0.1.2 (2026-11-03)
 ------------------
