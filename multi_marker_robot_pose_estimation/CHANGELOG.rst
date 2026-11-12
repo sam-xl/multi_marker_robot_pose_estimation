@@ -7,6 +7,7 @@ Changelog for multi_marker_robot_pose_estimation
 - Estimate pose covariance from reprojection error
 - Remove ``pose_estimator`` node.
 - Add ci pipeline for github actions.
+- Remove unused functions in utils.py
 
 0.1.1 (2026-09-09)
 ------------------
