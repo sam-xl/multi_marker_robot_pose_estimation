@@ -78,6 +78,55 @@ class ArucoLocalizationNode(rclpy.node.Node):
         self.aruco_parameters.cornerRefinementMethod = cv2.aruco.CORNER_REFINE_APRILTAG
         self.aruco_detector = cv2.aruco.ArucoDetector(self.aruco_dictionary, self.aruco_parameters)
 
+    def estimate_pose(self, cv_image, intrinsic_mat, distortion):
+        """Return the camera pose in world frame from the markers in `cv_image`, or None."""
+        # Create Aruco board from published TF references
+        board = create_marker_board(
+            self.tf_buffer,
+            self.world_frame_id,
+            aruco_dict=self.aruco_dictionary,
+            marker_size=self.marker_size,
+        )
+
+        if board is None:
+            self.get_logger().warn("No aruco reference frames found", throttle_duration_sec=1.0)
+            return None
+
+        # Detect markers
+        corners, ids, _ = self.aruco_detector.detectMarkers(cv_image)
+
+        if ids is None or len(ids) == 0:
+            self.get_logger().info("No aruco markers detected", throttle_duration_sec=10.0)
+            return None
+
+        result = detect_marker_board(
+            corners, ids, board, intrinsic_mat, distortion, frame=cv_image if self.debug else None
+        )
+
+        if result is None:
+            self.get_logger().info("No valid board markers detected", throttle_duration_sec=10.0)
+            return None
+
+        objPoints, imgPoints = result
+
+        # Estimate camera pose from detected markers
+        # Pose is camera pose in world frame
+        pose = estimate_camera_pose(
+            objPoints,
+            imgPoints,
+            matrix_coefficients=intrinsic_mat,
+            distortion_coefficients=distortion,
+            frame=cv_image if self.debug else None,
+        )
+
+        if pose is None:
+            self.get_logger().info(
+                "Could not estimate camera pose from detected aruco board",
+                throttle_duration_sec=10.0,
+            )
+
+        return pose
+
     def sync_callback(self, info_msg, img_msg):
         """
         Synchronized camera info and image callback.
@@ -97,53 +146,14 @@ class ArucoLocalizationNode(rclpy.node.Node):
         # convert the image messages to cv2 format
         cv_image = self.bridge.imgmsg_to_cv2(img_msg, desired_encoding="bgr8")
 
-        # Create Aruco board from published TF references
-        board = create_marker_board(
-            self.tf_buffer,
-            self.world_frame_id,
-            aruco_dict=self.aruco_dictionary,
-            marker_size=self.marker_size,
-        )
-
-        if board is None:
-            self.get_logger().warn("No aruco reference frames found", throttle_duration_sec=1.0)
-            return
-
-        # Detect markers
-        corners, ids, _ = self.aruco_detector.detectMarkers(cv_image)
-
-        if ids is None or len(ids) == 0:
-            self.get_logger().info("No aruco markers detected", throttle_duration_sec=10.0)
-            return
-
-        result = detect_marker_board(
-            corners, ids, board, intrinsic_mat, distortion, frame=cv_image if self.debug else None
-        )
-
-        if result is None:
-            self.get_logger().info("No valid board markers detected", throttle_duration_sec=10.0)
-            return
-
-        objPoints, imgPoints = result
-
-        # Estimate camera pose from detected markers
-        # Pose is camera pose in world frame
-        pose = estimate_camera_pose(
-            objPoints,
-            imgPoints,
-            matrix_coefficients=intrinsic_mat,
-            distortion_coefficients=distortion,
-            frame=cv_image if self.debug else None,
-        )
+        pose = self.estimate_pose(cv_image, intrinsic_mat, distortion)
 
         if self.debug:
-            self.image_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, encoding="bgr8"))
+            self.image_pub.publish(
+                self.bridge.cv2_to_imgmsg(cv_image, encoding="bgr8", header=img_msg.header)
+            )
 
         if pose is None:
-            self.get_logger().info(
-                "Could not estimate camera pose from detected aruco board",
-                throttle_duration_sec=10.0,
-            )
             return
 
         try:
