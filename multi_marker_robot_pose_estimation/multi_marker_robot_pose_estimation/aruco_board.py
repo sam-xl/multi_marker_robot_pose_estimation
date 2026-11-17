@@ -141,6 +141,39 @@ def detect_marker_board(
     return objPoints, imgPoints
 
 
+def select_inlier_corners(
+    objPoints,
+    imgPoints,
+    matrix_coefficients,
+    distortion_coefficients,
+    reprojection_error,
+    frame=None,
+) -> np.ndarray:
+    """
+    Return which corners in objPoints and imgPoints agree on one pose, found by RANSAC.
+
+    A corner agrees with a pose when it reprojects within reprojection_error pixels.
+    """
+    inliers = np.zeros(len(objPoints), dtype=bool)
+    success, _, _, inlier_indices = cv2.solvePnPRansac(
+        objPoints,
+        imgPoints,
+        matrix_coefficients,
+        distortion_coefficients,
+        reprojectionError=reprojection_error,
+        flags=cv2.SOLVEPNP_SQPNP,
+    )
+    if success and inlier_indices is not None:
+        inliers[inlier_indices.ravel()] = True
+
+    if frame is not None:
+        # Circle the rejected corners in red
+        for x, y in imgPoints[~inliers].reshape(-1, 2).astype(int):
+            cv2.circle(frame, (int(x), int(y)), radius=4, color=(0, 0, 255), thickness=2)
+
+    return inliers
+
+
 def pose_covariance(jacobian, imgPoints, projPoints, sigma_min) -> np.ndarray:
     """
     Return the covariance (JᵀJ)⁻¹σ² of the [translation, rotation] pose fitted to imgPoints.

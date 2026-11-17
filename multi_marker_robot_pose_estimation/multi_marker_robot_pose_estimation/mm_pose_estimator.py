@@ -24,6 +24,7 @@ from multi_marker_robot_pose_estimation.aruco_board import (
     create_marker_board,
     detect_marker_board,
     estimate_camera_pose,
+    select_inlier_corners,
 )
 from multi_marker_robot_pose_estimation.utils import (
     matrix_to_pose,
@@ -109,11 +110,28 @@ class ArucoLocalizationNode(rclpy.node.Node):
 
         objPoints, imgPoints = result
 
-        # Estimate camera pose from detected markers
-        # Pose is camera pose in world frame
-        pose = estimate_camera_pose(
+        corner_inliers = select_inlier_corners(
             objPoints,
             imgPoints,
+            matrix_coefficients=intrinsic_mat,
+            distortion_coefficients=distortion,
+            reprojection_error=self.get_parameter("reprojection_error").value,
+            frame=cv_image if self.debug else None,
+        )
+
+        min_markers = self.get_parameter("min_markers").get_parameter_value().integer_value
+        if np.count_nonzero(corner_inliers.reshape(-1, 4).any(axis=1)) < min_markers:
+            self.get_logger().info(
+                f"Corners of fewer than {min_markers} markers agree on a pose",
+                throttle_duration_sec=10.0,
+            )
+            return None
+
+        # Estimate camera pose from the inlier corners
+        # Pose is camera pose in world frame
+        pose = estimate_camera_pose(
+            objPoints[corner_inliers],
+            imgPoints[corner_inliers],
             matrix_coefficients=intrinsic_mat,
             distortion_coefficients=distortion,
             sigma_min=self.get_parameter("sigma_min").value,
@@ -296,6 +314,30 @@ class ArucoLocalizationNode(rclpy.node.Node):
                 description=(
                     "Lower bound on the per-coordinate pixel noise of the pose covariance [px]. "
                     "Raising it raises the covariance of frames with small reprojection errors."
+                ),
+            ),
+        )
+
+        self.declare_parameter(
+            name="reprojection_error",
+            value=12.0,
+            descriptor=ParameterDescriptor(
+                type=ParameterType.PARAMETER_DOUBLE,
+                description=(
+                    "Largest reprojection error of a marker corner that agrees with the pose "
+                    "[px]. Lowering it rejects more corners as outliers."
+                ),
+            ),
+        )
+
+        self.declare_parameter(
+            name="min_markers",
+            value=3,
+            descriptor=ParameterDescriptor(
+                type=ParameterType.PARAMETER_INTEGER,
+                description=(
+                    "Fewest markers whose corners must agree on a pose for it to be published. "
+                    "With 1 or 2, a pose can flip between the two fits of a small marker."
                 ),
             ),
         )
