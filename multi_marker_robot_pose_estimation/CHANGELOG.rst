@@ -9,6 +9,10 @@ Forthcoming
   last frame with a pose and had an empty header.
 - Fix the TF EMA dropping the TF for rotations near 180°: average the
   quaternion on the previous one's sign and renormalise it.
+- Make ``tf_alpha`` the weight of the newest estimate, as in the usual
+  EMA definition; it was the weight of the previous one. Replace a value
+  ``a`` set before with ``1 - a``. The default changes from 0.85 to 0.15,
+  which smooths the same.
 
 0.1.2 (2026-11-03)
 ------------------

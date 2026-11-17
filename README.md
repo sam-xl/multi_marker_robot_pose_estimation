@@ -110,7 +110,7 @@ Frame of which to publish pose. Defaults to `base_link`. The detected camera pos
 Frame as which to publish TF. If empty, no TF is published. This is useful if another node is already publishing the actual `world`->`base_frame_id` transformation.
 
 * `tf_alpha` (double)\
-Parameter of EMA filter for TF broadcaster. Defaults to `0.85`. This increases accuracy by averaging over multiple frames, provided that the robot is stationary.
+Weight α of the newest estimate in the exponential moving average of the TF, `α·new + (1 − α)·previous`. Defaults to `0.15`, from `0.01` to `1`. `1` disables smoothing; lowering it averages over more frames (about 1/α), which increases accuracy while the robot is stationary and makes the TF lag while it moves. `~/pose` is not smoothed.
 
 * `fps` (double)\
 Maximum frames per second to process. Defaults to `5`.

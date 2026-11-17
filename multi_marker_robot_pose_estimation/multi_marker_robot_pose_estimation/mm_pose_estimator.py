@@ -14,7 +14,7 @@ import rclpy.node
 import tf2_geometry_msgs  # noqa: F401
 from cv_bridge import CvBridge
 from geometry_msgs.msg import PoseWithCovarianceStamped, Quaternion, TransformStamped
-from rcl_interfaces.msg import ParameterDescriptor, ParameterType
+from rcl_interfaces.msg import FloatingPointRange, ParameterDescriptor, ParameterType
 from rclpy.executors import ExternalShutdownException
 from rclpy.qos import QoSHistoryPolicy, QoSProfile, qos_profile_sensor_data
 from sensor_msgs.msg import CameraInfo, Image
@@ -205,17 +205,14 @@ class ArucoLocalizationNode(rclpy.node.Node):
             # EMA filter
             if self.transform is not None:
                 t.transform.translation.x = (
-                    self.tf_alpha * self.transform.translation.x
-                    + (1 - self.tf_alpha) * t.transform.translation.x
-                )
+                    1 - self.tf_alpha
+                ) * self.transform.translation.x + self.tf_alpha * t.transform.translation.x
                 t.transform.translation.y = (
-                    self.tf_alpha * self.transform.translation.y
-                    + (1 - self.tf_alpha) * t.transform.translation.y
-                )
+                    1 - self.tf_alpha
+                ) * self.transform.translation.y + self.tf_alpha * t.transform.translation.y
                 t.transform.translation.z = (
-                    self.tf_alpha * self.transform.translation.z
-                    + (1 - self.tf_alpha) * t.transform.translation.z
-                )
+                    1 - self.tf_alpha
+                ) * self.transform.translation.z + self.tf_alpha * t.transform.translation.z
                 r_previous = self.transform.rotation
                 r_new = t.transform.rotation
                 q_previous = np.array([r_previous.x, r_previous.y, r_previous.z, r_previous.w])
@@ -223,7 +220,7 @@ class ArucoLocalizationNode(rclpy.node.Node):
                 # q and -q are the same rotation; average the one closest to q_previous
                 if np.dot(q_previous, q_new) < 0:
                     q_new = -q_new
-                q = self.tf_alpha * q_previous + (1 - self.tf_alpha) * q_new
+                q = (1 - self.tf_alpha) * q_previous + self.tf_alpha * q_new
                 x, y, z, w = q / np.linalg.norm(q)
                 t.transform.rotation = Quaternion(x=x, y=y, z=z, w=w)
             self.transform = t.transform
@@ -279,10 +276,14 @@ class ArucoLocalizationNode(rclpy.node.Node):
 
         self.declare_parameter(
             name="tf_alpha",
-            value=0.85,
+            value=0.15,
             descriptor=ParameterDescriptor(
                 type=ParameterType.PARAMETER_DOUBLE,
-                description="Parameter of EMA filter for TF",
+                description=(
+                    "Weight of the newest estimate in the TF's exponential moving average. "
+                    "1 disables smoothing; lowering it smooths more and lags more."
+                ),
+                floating_point_range=[FloatingPointRange(from_value=0.01, to_value=1.0)],
             ),
         )
 
