@@ -21,6 +21,9 @@ Forthcoming
   than ``min_markers`` markers. The new ``reprojection_error`` parameter
   sets the agreement threshold. Rejected corners are circled red on
   ``~/debug_image``.
+- Remove the marker area (400 px²) and squareness filters. The outlier
+  rejection catches the misdetections they caught, and the area filter
+  mostly dropped usable markers.
 
 0.1.2 (2026-11-03)
 ------------------

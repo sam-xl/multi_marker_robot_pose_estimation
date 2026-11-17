@@ -1,7 +1,6 @@
 """Functions to deal with ArUco board markers."""
 
 import re
-from math import sqrt
 
 import cv2
 import numpy as np
@@ -86,46 +85,7 @@ def detect_marker_board(
     if ids is None or len(ids) == 0:
         return None
 
-    # Remove small and acute markers
-    newcorners = []
-    newids = []
-    for corner, _id in zip(corners, ids):
-        x = corner[0, :, 0]
-        y = corner[0, :, 1]
-        area = (
-            x[0] * y[1]
-            + x[1] * y[2]
-            + x[2] * y[3]
-            + x[3] * y[0]
-            - x[1] * y[0]
-            - x[2] * y[1]
-            - x[3] * y[2]
-            - x[0] * y[3]
-        ) / 2
-
-        # Remove small markers
-        if area < 400:
-            continue
-        perimeter = (
-            sqrt((x[1] - x[0]) ** 2 + (y[1] - y[0]) ** 2)
-            + sqrt((x[2] - x[1]) ** 2 + (y[2] - y[1]) ** 2)
-            + sqrt((x[3] - x[2]) ** 2 + (y[3] - y[2]) ** 2)
-            + sqrt((x[0] - x[3]) ** 2 + (y[0] - y[3]) ** 2)
-        )
-        squareness = 4 * sqrt(area) / perimeter
-
-        # Remove acute markers
-        if squareness < 0.8:
-            continue
-
-        newcorners.append(corner)
-        newids.append(_id)
-    newids = np.array(newids)
-
-    if newids is None or newids.size == 0:
-        return None
-
-    objPoints, imgPoints = board.matchImagePoints(newcorners, newids)
+    objPoints, imgPoints = board.matchImagePoints(corners, ids)
 
     if objPoints is None:
         return None
@@ -136,7 +96,7 @@ def detect_marker_board(
 
     if frame is not None:
         # Show debug information superimposed on camera image
-        cv2.aruco.drawDetectedMarkers(frame, newcorners, newids)
+        cv2.aruco.drawDetectedMarkers(frame, corners, ids)
 
     return objPoints, imgPoints
 
