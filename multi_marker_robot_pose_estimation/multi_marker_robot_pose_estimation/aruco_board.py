@@ -5,7 +5,7 @@ from math import sqrt
 
 import cv2
 import numpy as np
-import rclpy
+import rclpy.time
 import yaml
 from geometry_msgs.msg import PoseWithCovariance
 

@@ -47,6 +47,8 @@ ignore = [
     "D102",  # documenting public methods in a test also seems heavy handed
     "D103",  # documenting public functions in a test also seems heavy handed
 ]
+# the virtualenv has to be on sys.path before the imports that follow it
+"**/test/conftest.py" = ["E402"]
 
 [tool.ruff.lint.isort]
 
