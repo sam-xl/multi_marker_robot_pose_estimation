@@ -13,8 +13,8 @@ import rclpy
 import rclpy.node
 import tf2_geometry_msgs  # noqa: F401
 from cv_bridge import CvBridge
-from geometry_msgs.msg import PoseWithCovarianceStamped, TransformStamped
-from rcl_interfaces.msg import ParameterDescriptor, ParameterType
+from geometry_msgs.msg import PoseWithCovarianceStamped, Quaternion, TransformStamped
+from rcl_interfaces.msg import FloatingPointRange, ParameterDescriptor, ParameterType
 from rclpy.executors import ExternalShutdownException
 from rclpy.qos import QoSHistoryPolicy, QoSProfile, qos_profile_sensor_data
 from sensor_msgs.msg import CameraInfo, Image
@@ -78,6 +78,56 @@ class ArucoLocalizationNode(rclpy.node.Node):
         self.aruco_parameters.cornerRefinementMethod = cv2.aruco.CORNER_REFINE_APRILTAG
         self.aruco_detector = cv2.aruco.ArucoDetector(self.aruco_dictionary, self.aruco_parameters)
 
+    def estimate_pose(self, cv_image, intrinsic_mat, distortion):
+        """Return the camera pose in world frame from the markers in `cv_image`, or None."""
+        # Create Aruco board from published TF references
+        board = create_marker_board(
+            self.tf_buffer,
+            self.world_frame_id,
+            aruco_dict=self.aruco_dictionary,
+            marker_size=self.marker_size,
+        )
+
+        if board is None:
+            self.get_logger().warn("No aruco reference frames found", throttle_duration_sec=1.0)
+            return None
+
+        # Detect markers
+        corners, ids, _ = self.aruco_detector.detectMarkers(cv_image)
+
+        if ids is None or len(ids) == 0:
+            self.get_logger().info("No aruco markers detected", throttle_duration_sec=10.0)
+            return None
+
+        result = detect_marker_board(
+            corners, ids, board, intrinsic_mat, distortion, frame=cv_image if self.debug else None
+        )
+
+        if result is None:
+            self.get_logger().info("No valid board markers detected", throttle_duration_sec=10.0)
+            return None
+
+        objPoints, imgPoints = result
+
+        # Estimate camera pose from detected markers
+        # Pose is camera pose in world frame
+        pose = estimate_camera_pose(
+            objPoints,
+            imgPoints,
+            matrix_coefficients=intrinsic_mat,
+            distortion_coefficients=distortion,
+            sigma_min=self.get_parameter("sigma_min").value,
+            frame=cv_image if self.debug else None,
+        )
+
+        if pose is None:
+            self.get_logger().info(
+                "Could not estimate camera pose from detected aruco board",
+                throttle_duration_sec=10.0,
+            )
+
+        return pose
+
     def sync_callback(self, info_msg, img_msg):
         """
         Synchronized camera info and image callback.
@@ -97,53 +147,14 @@ class ArucoLocalizationNode(rclpy.node.Node):
         # convert the image messages to cv2 format
         cv_image = self.bridge.imgmsg_to_cv2(img_msg, desired_encoding="bgr8")
 
-        # Create Aruco board from published TF references
-        board = create_marker_board(
-            self.tf_buffer,
-            self.world_frame_id,
-            aruco_dict=self.aruco_dictionary,
-            marker_size=self.marker_size,
-        )
-
-        if board is None:
-            self.get_logger().warn("No aruco reference frames found", throttle_duration_sec=1.0)
-            return
-
-        # Detect markers
-        corners, ids, _ = self.aruco_detector.detectMarkers(cv_image)
-
-        if ids is None or len(ids) == 0:
-            self.get_logger().info("No aruco markers detected", throttle_duration_sec=10.0)
-            return
-
-        result = detect_marker_board(
-            corners, ids, board, intrinsic_mat, distortion, frame=cv_image if self.debug else None
-        )
-
-        if result is None:
-            self.get_logger().info("No valid board markers detected", throttle_duration_sec=10.0)
-            return
-
-        objPoints, imgPoints = result
-
-        # Estimate camera pose from detected markers
-        # Pose is camera pose in world frame
-        pose = estimate_camera_pose(
-            objPoints,
-            imgPoints,
-            matrix_coefficients=intrinsic_mat,
-            distortion_coefficients=distortion,
-            frame=cv_image if self.debug else None,
-        )
+        pose = self.estimate_pose(cv_image, intrinsic_mat, distortion)
 
         if self.debug:
-            self.image_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, encoding="bgr8"))
+            self.image_pub.publish(
+                self.bridge.cv2_to_imgmsg(cv_image, encoding="bgr8", header=img_msg.header)
+            )
 
         if pose is None:
-            self.get_logger().info(
-                "Could not estimate camera pose from detected aruco board",
-                throttle_duration_sec=10.0,
-            )
             return
 
         try:
@@ -195,33 +206,24 @@ class ArucoLocalizationNode(rclpy.node.Node):
             # EMA filter
             if self.transform is not None:
                 t.transform.translation.x = (
-                    self.tf_alpha * self.transform.translation.x
-                    + (1 - self.tf_alpha) * t.transform.translation.x
-                )
+                    1 - self.tf_alpha
+                ) * self.transform.translation.x + self.tf_alpha * t.transform.translation.x
                 t.transform.translation.y = (
-                    self.tf_alpha * self.transform.translation.y
-                    + (1 - self.tf_alpha) * t.transform.translation.y
-                )
+                    1 - self.tf_alpha
+                ) * self.transform.translation.y + self.tf_alpha * t.transform.translation.y
                 t.transform.translation.z = (
-                    self.tf_alpha * self.transform.translation.z
-                    + (1 - self.tf_alpha) * t.transform.translation.z
-                )
-                t.transform.rotation.x = (
-                    self.tf_alpha * self.transform.rotation.x
-                    + (1 - self.tf_alpha) * t.transform.rotation.x
-                )
-                t.transform.rotation.y = (
-                    self.tf_alpha * self.transform.rotation.y
-                    + (1 - self.tf_alpha) * t.transform.rotation.y
-                )
-                t.transform.rotation.z = (
-                    self.tf_alpha * self.transform.rotation.z
-                    + (1 - self.tf_alpha) * t.transform.rotation.z
-                )
-                t.transform.rotation.w = (
-                    self.tf_alpha * self.transform.rotation.w
-                    + (1 - self.tf_alpha) * t.transform.rotation.w
-                )
+                    1 - self.tf_alpha
+                ) * self.transform.translation.z + self.tf_alpha * t.transform.translation.z
+                r_previous = self.transform.rotation
+                r_new = t.transform.rotation
+                q_previous = np.array([r_previous.x, r_previous.y, r_previous.z, r_previous.w])
+                q_new = np.array([r_new.x, r_new.y, r_new.z, r_new.w])
+                # q and -q are the same rotation; average the one closest to q_previous
+                if np.dot(q_previous, q_new) < 0:
+                    q_new = -q_new
+                q = (1 - self.tf_alpha) * q_previous + self.tf_alpha * q_new
+                x, y, z, w = q / np.linalg.norm(q)
+                t.transform.rotation = Quaternion(x=x, y=y, z=z, w=w)
             self.transform = t.transform
 
             self.tf_broadcaster.sendTransform(t)
@@ -275,10 +277,26 @@ class ArucoLocalizationNode(rclpy.node.Node):
 
         self.declare_parameter(
             name="tf_alpha",
-            value=0.85,
+            value=0.15,
             descriptor=ParameterDescriptor(
                 type=ParameterType.PARAMETER_DOUBLE,
-                description="Parameter of EMA filter for TF",
+                description=(
+                    "Weight of the newest estimate in the TF's exponential moving average. "
+                    "1 disables smoothing; lowering it smooths more and lags more."
+                ),
+                floating_point_range=[FloatingPointRange(from_value=0.01, to_value=1.0)],
+            ),
+        )
+
+        self.declare_parameter(
+            name="sigma_min",
+            value=0.5,
+            descriptor=ParameterDescriptor(
+                type=ParameterType.PARAMETER_DOUBLE,
+                description=(
+                    "Lower bound on the per-coordinate pixel noise of the pose covariance [px]. "
+                    "Raising it raises the covariance of frames with small reprojection errors."
+                ),
             ),
         )
 

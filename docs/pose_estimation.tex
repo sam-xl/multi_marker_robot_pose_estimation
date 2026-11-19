@@ -1,9 +1,19 @@
+% latexmk -pdf pose_estimation.tex && latexmk -c pose_estimation.tex
+
 \documentclass{article}
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{mathtools}
 \usepackage{bm}
 \usepackage{hyperref}
+\usepackage{xcolor}
+
+% Review aid: highlights text added in this branch; remove before merging.
+\definecolor{addedcolor}{rgb}{0.85,1,0.85}
+\newsavebox{\addedbox}
+\newenvironment{added}
+  {\par\noindent\begin{lrbox}{\addedbox}\begin{minipage}{\dimexpr\linewidth-2\fboxsep\relax}}
+  {\end{minipage}\end{lrbox}\colorbox{addedcolor}{\usebox{\addedbox}}\par}
 
 \input{notation}
 
@@ -21,11 +31,15 @@ where $\inC \pb$ are the marker points in the camera frame and $\xib$ are small 
 \[
 \dot{\m} = \J \begin{pmatrix} \inC \nub_\C \\ \inC \omegab_\C \end{pmatrix},
 \]
-where $\inC \nub_\C$ and $\inC \omegab_\C$ are the translational and rotational velocities of the camera in the camera frame. The outer product of the Jacobian with itself is used as an approximation (Gauss-Newton) of the Hessian, and the inverse of this is used as an approximation (Gaussian model) of the camera pose covariance in the camera frame
+where $\inC \nub_\C$ and $\inC \omegab_\C$ are the translational and rotational velocities of the camera in the camera frame.
+\begin{added}
+The camera pose covariance in the camera frame is
 \[
-\inCs \Sb_\C \approx (\J^\tran \J)^{-1} \sigma^2,
+\inCs \Sb_\C \approx \sigma^2 (\J^\tran \J)^{-1}, \qquad \sigma^2 = \max\left(\hat\sigma^2, \sigma_\mathrm{min}^2\right),
 \]
-where $\sigma$ is the root-mean-squared reprojection error of the marker points.
+where $\hat\sigma^2$ is the pixel noise variance estimated from the reprojection residuals of the $N$ detected corners, $\hat\sigma^2 = \frac{1}{2N - 6} \sum_{i=1}^{N} (\Delta u_i^2 + \Delta v_i^2)$, and $\sigma_\mathrm{min}$ is a lower bound for it.
+Both are derived in \href{camera_pose_covariance.pdf}{\texttt{camera\_pose\_covariance.pdf}}.
+\end{added}
 
 As we require the pose covariance in the world frame, $\inCs \Sb_\C$ is then rotated into the world frame using
 \begin{align}
