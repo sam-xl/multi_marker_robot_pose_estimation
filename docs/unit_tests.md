@@ -1,6 +1,6 @@
 # Unit tests
 
-The unit tests for `multi_marker_robot_pose_estimation` cover this package's own logic in `utils.py` and `aruco_board.py`. They don't re-test numpy, OpenCV or transforms3d. Each test targets a mistake this package could make: a quaternion ordering mix-up, a wrong corner order, a filter threshold, or a frame-convention error.
+The unit tests for `multi_marker_robot_pose_estimation` cover this package's own logic in `utils.py` and `aruco_board.py`. Each test targets a mistake this package could make: a quaternion ordering mix-up, a wrong corner order, a filter threshold, or a frame-convention error.
 
 ## Running the tests
 
@@ -19,6 +19,8 @@ For a quicker loop after sourcing:
 python3 -m pytest src/multi_marker_robot_pose_estimation/multi_marker_robot_pose_estimation/test -v
 ```
 
+Either way, build the package first: the tests use the virtualenv the build creates (see below).
+
 The tests use pytest only and need no extra dependencies. They must pass `ruff check` and `ruff format --check`, using the repository's `pyproject.toml`, the same as the rest of the code.
 
 ## Layout
@@ -27,7 +29,8 @@ The tests use pytest only and need no extra dependencies. They must pass `ruff c
 multi_marker_robot_pose_estimation/test/
 ├── conftest.py            shared fixtures
 ├── test_utils.py          T1, T2, T3
-└── test_aruco_board.py    T5, T6, T8, T9
+├── test_aruco_board.py    T5, T6, T8, T9
+└── test_environment.py    the pinned OpenCV is the one in use
 ```
 
 ## Shared fixtures (`conftest.py`)
@@ -66,4 +69,3 @@ All values are fixed and nothing is random, so every run is deterministic.
 ## Things to know
 
 - **`rclpy.time` is imported in `conftest.py`.** `create_marker_board` calls `rclpy.time.Time()` but `aruco_board.py` only does `import rclpy`, which doesn't load the `rclpy.time` submodule. In the node, `rclpy.node` loads it as a side effect. In isolation the call raises `AttributeError`. The broad `except Exception` around the TF lookup swallows that error, so every marker is skipped and the function quietly returns `None`. `conftest.py` imports `rclpy.time` to match the node's runtime. The real fix is `import rclpy.time` in `aruco_board.py`.
-- **OpenCV ≥ 4.7 is required.** `detect_marker_board` uses `cv2.aruco.Board.matchImagePoints`, which was added in OpenCV 4.7. rosdep installs Ubuntu's `python3-opencv` 4.6. CI therefore installs the version pinned in the package's `requirements.txt` (`opencv-python==4.8.0.76`) inside the industrial_ci container (see `.github/workflows/ci.yml`). Locally, check with `python3 -c "import cv2; print(cv2.__version__)"`.
