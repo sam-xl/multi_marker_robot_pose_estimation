@@ -12,8 +12,10 @@ import numpy as np
 import rclpy
 from builtin_interfaces.msg import Time
 from cv_bridge import CvBridge
+from geometry_msgs.msg import TransformStamped
 from launch_ros.actions import Node
 from sensor_msgs.msg import CameraInfo, Image
+from tf2_ros import StaticTransformBroadcaster
 from transforms3d.euler import euler2mat
 
 MARKER_SIZE = 0.2
@@ -34,25 +36,32 @@ def estimator_node(**parameters):
     )
 
 
-def static_transform_publisher(frame_id, child_frame_id, *pose_arguments):
-    """Return a tf2_ros static_transform_publisher of child_frame_id in frame_id."""
+def camera_tf_publisher():
+    """Return the static TF publisher of the camera, looking down from base_link."""
     return Node(
         package="tf2_ros",
         executable="static_transform_publisher",
-        arguments=[*pose_arguments, "--frame-id", frame_id, "--child-frame-id", child_frame_id],
+        arguments=["--roll", str(np.pi), "--frame-id", "base_link", "--child-frame-id", "camera"],
     )
 
 
-def scene_tf_publishers(marker_frames):
+def broadcast_marker_frames(node, marker_frames):
     """
-    Return the static TF publishers of the scene that render_markers draws.
+    Broadcast `marker_frames`, [(frame, (x, y)), ...] in world, from `node` in one message.
 
-    `marker_frames`, [(frame, (x, y)), ...], are in world; the camera looks down from base_link.
+    The estimator builds its board from the marker frames it has received, so with one
+    publisher per frame its first images may be solved from only some of the markers.
     """
-    return [
-        static_transform_publisher("world", frame, "--x", str(x), "--y", str(y))
-        for frame, (x, y) in marker_frames
-    ] + [static_transform_publisher("base_link", "camera", "--roll", str(np.pi))]
+    transforms = []
+    for frame, (x, y) in marker_frames:
+        transform = TransformStamped()
+        transform.header.frame_id = "world"
+        transform.child_frame_id = frame
+        transform.transform.translation.x = x
+        transform.transform.translation.y = y
+        transform.transform.rotation.w = 1.0
+        transforms.append(transform)
+    StaticTransformBroadcaster(node).sendTransform(transforms)
 
 
 def render_markers(base_yaw, markers):

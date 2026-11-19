@@ -11,7 +11,13 @@ from launch_testing.actions import ReadyToTest
 from rclpy.parameter import Parameter
 from rclpy.parameter_client import AsyncParameterClient
 from sensor_msgs.msg import Image
-from synthetic_camera import SyntheticCamera, estimator_node, render_markers, scene_tf_publishers
+from synthetic_camera import (
+    SyntheticCamera,
+    broadcast_marker_frames,
+    camera_tf_publisher,
+    estimator_node,
+    render_markers,
+)
 from tf2_ros import Buffer, TransformListener
 
 MARKERS = [(0, (-0.3, 0.25)), (1, (0.0, 0.25)), (2, (0.3, 0.25)), (3, (-0.3, -0.2))]
@@ -25,7 +31,7 @@ def generate_test_description():
     return LaunchDescription(
         [
             estimator_node(debug=True, tf_frame_id="base_tf", tf_alpha=TF_ALPHA),
-            *scene_tf_publishers(MARKER_FRAMES),
+            camera_tf_publisher(),
             ReadyToTest(),
         ]
     )
@@ -50,6 +56,7 @@ class TestPoseOutputs(unittest.TestCase):
         cls.tf_buffer = Buffer()
         cls.tf_listener = TransformListener(cls.tf_buffer, cls.node)
         cls.camera = SyntheticCamera(cls.node)
+        broadcast_marker_frames(cls.node, MARKER_FRAMES)
 
     @classmethod
     def tearDownClass(cls):
