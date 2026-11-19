@@ -9,7 +9,7 @@ from multi_marker_robot_pose_estimation.aruco_board import (
     detect_marker_board,
     estimate_camera_pose,
 )
-from multi_marker_robot_pose_estimation.utils import pose_to_matrix
+from multi_marker_robot_pose_estimation.utils import RX, RZ, pose_to_matrix
 
 WORLD = "world"
 MARKER_SIZE = 0.2
@@ -188,16 +188,6 @@ def test_detect_marker_board_filters(
 
 
 # T9: estimate_camera_pose on synthetic data
-def rot_x(theta: float) -> np.ndarray:
-    c, s = math.cos(theta), math.sin(theta)
-    return np.array([[1.0, 0.0, 0.0], [0.0, c, -s], [0.0, s, c]])
-
-
-def rot_z(theta: float) -> np.ndarray:
-    c, s = math.cos(theta), math.sin(theta)
-    return np.array([[c, -s, 0.0], [s, c, 0.0], [0.0, 0.0, 1.0]])
-
-
 def test_estimate_camera_pose_synthetic(camera_intrinsics):
     K, dist = camera_intrinsics
 
@@ -209,7 +199,7 @@ def test_estimate_camera_pose_synthetic(camera_intrinsics):
 
     # Camera ~2 m above the plane, looking down (camera Z towards world -Z), slightly tilted
     T_world_camera = np.eye(4)
-    T_world_camera[:3, :3] = rot_z(0.3) @ rot_x(math.pi - 0.1)
+    T_world_camera[:3, :3] = RZ(0.3) @ RX(math.pi - 0.1)
     T_world_camera[:3, 3] = [0.2, 0.1, 2.0]
 
     T_camera_world = np.linalg.inv(T_world_camera)

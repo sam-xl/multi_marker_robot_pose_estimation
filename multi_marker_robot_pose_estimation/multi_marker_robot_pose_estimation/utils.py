@@ -1,8 +1,50 @@
 """Utility functions for pose estimation."""
 
+from math import cos, sin
+
 import numpy as np
 from geometry_msgs.msg import Point, Pose, PoseWithCovariance, Quaternion, Transform, Vector3
 from transforms3d.quaternions import mat2quat, quat2mat
+
+
+def RX(theta: float) -> np.ndarray:
+    """
+    3D rotation matrix about the X axis.
+
+    Args:
+        theta (float): the rotation angle.
+
+    Returns:
+        np.ndarray: the (3, 3) rotation matrix.
+    """
+    return np.asarray(
+        [
+            [1.0, 0.0, 0.0],
+            [0.0, cos(theta), -sin(theta)],
+            [0.0, sin(theta), cos(theta)],
+        ],
+        dtype=np.float64,
+    )
+
+
+def RZ(theta: float) -> np.ndarray:
+    """
+    3D rotation matrix about the Z axis.
+
+    Args:
+        theta (float): the rotation angle.
+
+    Returns:
+        np.ndarray: the (3, 3) rotation matrix.
+    """
+    return np.asarray(
+        [
+            [cos(theta), -sin(theta), 0.0],
+            [sin(theta), cos(theta), 0.0],
+            [0.0, 0.0, 1.0],
+        ],
+        dtype=np.float64,
+    )
 
 
 def HT(
