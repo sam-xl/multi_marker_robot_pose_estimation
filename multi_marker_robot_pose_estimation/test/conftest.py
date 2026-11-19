@@ -1,19 +1,27 @@
-# colcon test runs pytest with the system python, which has rosdep's python3-opencv 4.6. The node
-# runs in the virtualenv ament_virtualenv builds from requirements.txt, so put that virtualenv's
-# packages first, before anything imports cv2.
-import glob
-import os
 import site
 import sys
+import sysconfig
+from pathlib import Path
 
 from ament_index_python.packages import get_package_share_directory
 
-_venv = os.path.join(get_package_share_directory("multi_marker_robot_pose_estimation"), "venv")
-_site_packages = glob.glob(os.path.join(_venv, "lib", "python3*", "site-packages"))
-if not _site_packages:
-    raise RuntimeError(f"No virtualenv at {_venv}; build the package before testing it.")
+PACKAGE_NAME = "multi_marker_robot_pose_estimation"
+
+
+def virtualenv_site_packages() -> Path:
+    """Return the site-packages directory of the virtualenv built by ament_virtualenv."""
+    virtualenv_root = Path(get_package_share_directory(PACKAGE_NAME)) / "venv"
+    return Path(sysconfig.get_path("purelib", scheme="venv", vars={"base": str(virtualenv_root)}))
+
+
+# ament_virtualenv only wraps the installed console scripts, so pytest runs on the system
+# interpreter, which has rosdep's python3-opencv 4.6. Put the virtualenv's packages, with the
+# OpenCV pinned in requirements.txt, ahead of the system ones before anything imports cv2.
+_site_packages = virtualenv_site_packages()
+if not _site_packages.is_dir():
+    raise RuntimeError(f"No virtualenv at {_site_packages}; build the package before testing it.")
 _system_path = list(sys.path)
-site.addsitedir(_site_packages[0])  # appends, and also runs the virtualenv's .pth files
+site.addsitedir(str(_site_packages))  # appends, and also runs the virtualenv's .pth files
 sys.path[:] = [p for p in sys.path if p not in _system_path] + _system_path
 
 from collections.abc import Sequence
