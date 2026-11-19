@@ -110,4 +110,4 @@ def camera_intrinsics():
 
 @pytest.fixture
 def aruco_dict():
-    return cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
+    return cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_ARUCO_MIP_36h12)
