@@ -115,6 +115,12 @@ Weight α of the newest estimate in the exponential moving average of the TF, `�
 * `sigma_min` (double)\
 Lower bound on the per-coordinate pixel noise σ of the pose covariance, in pixels. Defaults to `0.5`. Raising it raises the covariance of frames with small reprojection errors, such as single-marker frames that fit by chance. Measure it as the noise of a static camera's corner detections, or take the camera calibration RMS error.
 
+* `reprojection_error` (double)\
+Largest reprojection error, in pixels, of a marker corner that agrees with the pose. Defaults to `12.0`. `cv2.solvePnPRansac` finds the pose that the most corners agree with, and only those corners go into the published pose. Lowering it rejects more corners as outliers. The default suits 640×480 images; scale it with the image width.
+
+* `min_markers` (int)\
+Fewest markers whose corners must agree on a pose for it to be published. A marker counts when at least one of its corners agrees. Defaults to `3`. With 1 or 2 small markers, the pose can flip between the two fits of a square.
+
 * `fps` (double)\
 Maximum frames per second to process. Defaults to `5`.
 

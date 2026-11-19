@@ -16,6 +16,14 @@ Forthcoming
 - Estimate the pixel noise of the pose covariance per coordinate over the
   2N - 6 residual degrees of freedom, floored by the new ``sigma_min``
   parameter. It was half the noise variance for a single marker.
+- Fit the pose only to the marker corners that agree on it, found with
+  ``cv2.solvePnPRansac``, and publish no pose when they come from fewer
+  than ``min_markers`` markers. The new ``reprojection_error`` parameter
+  sets the agreement threshold. Rejected corners are circled red on
+  ``~/debug_image``.
+- Remove the marker area (400 px²) and squareness filters. The outlier
+  rejection catches the misdetections they caught, and the area filter
+  mostly dropped usable markers.
 
 0.1.2 (2026-11-03)
 ------------------
